@@ -100,6 +100,7 @@
 "do"       return T_DO;
 "while"    return T_WHILE;
 "times"    return T_TIMES;
+"loop"     return T_LOOP;
 "switch"   return T_SWITCH;
 "case"     return T_CASE;
 "default"  return T_DEFAULT;

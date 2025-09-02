@@ -231,6 +231,7 @@ static const char sub_param_fi[] = {'f', 'i'};
 %token T_DO "do"
 %token T_WHILE "while"
 %token T_TIMES "times"
+%token T_LOOP "loop"
 %token T_SWITCH "switch"
 %token T_CASE "case"
 %token T_DEFAULT "default"
@@ -657,6 +658,7 @@ Block:
     | IfBlock
     | WhileBlock
     | TimesBlock
+    | LoopBlock
     | SwitchBlock
     ;
 
@@ -677,7 +679,8 @@ BreakStatement:
               if (
                   strncmp(head->data, "while", 5) == 0 ||
                   strncmp(head->data, "switch", 6) == 0 ||
-                  strncmp(head->data, "times", 5) == 0
+                  strncmp(head->data, "times", 5) == 0 ||
+                  strncmp(head->data, "loop", 4) == 0
               ) {
                   char labelstr[256];
                   snprintf(labelstr, 256, "%s_end", (char*)head->data);
@@ -698,7 +701,8 @@ ContinueStatement:
           for(; head; head = head->next) {
               if (
                   strncmp(head->data, "while", 5) == 0 ||
-                  strncmp(head->data, "times", 5) == 0
+                  strncmp(head->data, "times", 5) == 0 ||
+                  strncmp(head->data, "loop", 4) == 0
               ) {
                   char labelstr[256];
                   snprintf(labelstr, 256, "%s_st", (char*)head->data);
@@ -862,6 +866,32 @@ TimesBlock:
 
           thecl_variable_t* var = var_get(state, state->current_sub, (char*)head->data);
           var->is_unused = true; /* Allow next created var to reuse the stack offset of this one. */
+
+          expression_create_goto(state, GOTO, labelstr_st);
+          label_create(state, labelstr_end);
+
+          free(head->data);
+          list_del(&state->block_stack, head);
+    }
+    ;
+
+LoopBlock:
+    "loop" {
+          char labelstr[250];
+          snprintf(labelstr, 250, "loop_%i_%i", yylloc.first_line, yylloc.first_column);
+          char labelstr_st[256];
+          char labelstr_end[256];
+          snprintf(labelstr_st, 256, "%s_st", (char*)labelstr);
+          snprintf(labelstr_end, 256, "%s_end", (char*)labelstr);
+
+          list_prepend_new(&state->block_stack, strdup(labelstr));
+          label_create(state, labelstr_st);
+    } CodeBlock {
+          char labelstr_st[256];
+          char labelstr_end[256];
+          list_node_t *head = state->block_stack.head;
+          snprintf(labelstr_st, 256, "%s_st", (char*)head->data);
+          snprintf(labelstr_end, 256, "%s_end", (char*)head->data);
 
           expression_create_goto(state, GOTO, labelstr_st);
           label_create(state, labelstr_end);
