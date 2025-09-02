@@ -1491,6 +1491,7 @@ th06_parse(
     state.has_numeric_difficulties = false;
     list_init(&state.expressions);
     list_init(&state.block_stack);
+    list_init(&state.switch_stack);
     list_init(&state.global_definitions);
     state.scope_stack = NULL;
     state.scope_cnt = 0;

@@ -281,6 +281,7 @@ typedef struct {
     bool is_timeline_sub; /* Variable for escparse.y */
     list_t expressions;
     list_t block_stack;
+    list_t switch_stack;
     list_t global_definitions;
     int* scope_stack;
     int scope_cnt;

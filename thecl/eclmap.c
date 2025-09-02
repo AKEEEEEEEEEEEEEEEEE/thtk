@@ -120,6 +120,7 @@ is_keyword(
         "times", "switch", "case", "default",
         "break", "async", "global", "sin",
         "cos", "sqrt", "rad", "false", "true",
+        "continue",
         NULL
     };
     const char **kwp = keywords;

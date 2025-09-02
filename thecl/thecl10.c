@@ -2091,6 +2091,7 @@ th10_parse(
     state.uses_stack_offsets = is_post_th13(version);
     list_init(&state.expressions);
     list_init(&state.block_stack);
+    list_init(&state.switch_stack);
     list_init(&state.global_definitions);
     state.scope_stack = NULL;
     state.scope_cnt = 0;

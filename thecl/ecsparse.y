@@ -234,6 +234,7 @@ static const char sub_param_fi[] = {'f', 'i'};
 %token T_CASE "case"
 %token T_DEFAULT "default"
 %token T_BREAK "break"
+%token T_CONTINUE "continue"
 %token T_ASYNC "async"
 %token T_GLOBAL "global"
 %token T_ASSIGNADD "+="
@@ -666,7 +667,28 @@ BreakStatement:
               }
           }
           if(!head) {
-              yyerror(state, "break not within while or switch");
+              yyerror(state, "break not within while, times, or switch");
+              g_was_error = true;
+          }
+      }
+      ;
+
+ContinueStatement:
+    "continue" {
+          list_node_t *head = state->block_stack.head;
+          for(; head; head = head->next) {
+              if (
+                  strncmp(head->data, "while", 5) == 0 ||
+                  strncmp(head->data, "times", 5) == 0
+              ) {
+                  char labelstr[256];
+                  snprintf(labelstr, 256, "%s_st", (char*)head->data);
+                  expression_create_goto(state, GOTO, labelstr);
+                  break;
+              }
+          }
+          if(!head) {
+              yyerror(state, "continue not within while or times");
               g_was_error = true;
           }
       }
@@ -833,7 +855,7 @@ TimesBlock:
 SwitchBlock:
     "switch" '(' ExpressionAny[cond] ')' {
           char name[256];
-          list_prepend_new(&state->block_stack, NULL); /* The NULL acts as a sentinel of switch cases. */
+          list_prepend_new(&state->switch_stack, NULL); /* The NULL acts as a sentinel of switch cases. */
           snprintf(name, 256, "switch_%i_%i", yylloc.first_line, yylloc.first_column);
           list_prepend_new(&state->block_stack, strdup(name));
 
@@ -849,7 +871,7 @@ SwitchBlock:
 
           const expr_t* tmp = expr_get_by_symbol(state->version, $cond->result_type == 'S' ? ASSIGNI : ASSIGNF);
           instr_add(state->current_sub, instr_new(state, tmp->id, "p", param));
-          list_prepend_new(&state->block_stack, var); /* We will need it later. */
+          list_prepend_new(&state->switch_stack, var); /* We will need it later. */
           expression_free($cond);
 
           expression_create_goto(state, GOTO, name); /* Jump to the case checks. */
@@ -858,7 +880,7 @@ SwitchBlock:
     } CaseList '}' {
           scope_finish(state);
 
-          list_node_t* head = state->block_stack.head;
+          list_node_t* head = state->switch_stack.head;
           thecl_variable_t* var = (thecl_variable_t*)head->data;
           thecl_param_t* param = param_new(var->type);
           param->stack = 1;
@@ -866,7 +888,7 @@ SwitchBlock:
               param->value.val.S = var->stack;
           else
               param->value.val.f = (float)var->stack;
-          list_del(&state->block_stack, head);
+          list_del(&state->switch_stack, head);
 
           head = state->block_stack.head;
 
@@ -884,7 +906,7 @@ SwitchBlock:
           expr = expr_get_by_symbol(state->version, param->type == 'S' ? LOADI : LOADF);
           int id_load = expr->id;
 
-          list_node_t *node = state->block_stack.head;
+          list_node_t *node = state->switch_stack.head;
           while (node->data) {
               switch_case_t *switch_case = node->data;
 
@@ -905,9 +927,9 @@ SwitchBlock:
               free(buf);
           }
           param_free(param);
-          if (node->next != NULL) /* Prevent crashing when there is nothing else on the block stack. */
+          if (node->next != NULL) /* Prevent crashing when there is nothing else on the switch stack. */
               node->next->prev = NULL;
-          state->block_stack.head = node->next;
+          state->switch_stack.head = node->next;
           free(node);
 
           label_create(state, labelstr);
@@ -925,7 +947,7 @@ Case:
           switch_case_t *switch_case = malloc(sizeof(switch_case_t));
           switch_case->expr = $2;
 
-          list_node_t *node = state->block_stack.head;
+          list_node_t *node = state->switch_stack.head;
           if (((thecl_variable_t*)node->data)->type != $2->result_type)
               yyerror(state, "wrong value type in switch case");
 
@@ -937,7 +959,7 @@ Case:
           while(node->data) /* Sentinel has data=NULL */
               node = node->next;
 
-          list_prepend_to(&state->block_stack, switch_case, node); /* Prepends to the sentinel. */
+          list_prepend_to(&state->switch_stack, switch_case, node); /* Prepends to the sentinel. */
       }
     |
      "default" ':' {
@@ -947,11 +969,11 @@ Case:
           snprintf(switch_case->labelstr, 250, "case_%i_%i", yylloc.first_line, yylloc.first_column);
           label_create(state, switch_case->labelstr);
 
-          list_node_t *node = state->block_stack.head;
+          list_node_t *node = state->switch_stack.head;
           while(node->data)
               node = node->next;
 
-          list_prepend_to(&state->block_stack, switch_case, node);
+          list_prepend_to(&state->switch_stack, switch_case, node);
      }
     ;
 
@@ -1096,6 +1118,7 @@ InstructionNoGoto:
             instr_add(state->current_sub, instr_new(state, TH10_INS_STACK_ALLOC, "S", state->current_sub->stack));
      }
     | BreakStatement
+    | ContinueStatement
     | "return" ExpressionAny {
         if (!is_post_th10(state->version))
             yyerror(state, "return statement is not supported pre-th10");

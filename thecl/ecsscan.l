@@ -103,6 +103,7 @@
 "case"     return T_CASE;
 "default"  return T_DEFAULT;
 "break"    return T_BREAK;
+"continue" return T_CONTINUE;
 "async"    return T_ASYNC;
 "global"   return T_GLOBAL;
 "="        return '=';
