@@ -2060,13 +2060,31 @@ th10_instr_size(
 
     list_for_each(&instr->params, param) {
         /* XXX: I think 'z' is what will be passed ... */
-        if (param->type == 'm' || param->type == 'x') {
-            size_t zlen = g_ecl_encode_cp932 ? utf8_to_cp932_len(param->value.val.z) : strlen(param->value.val.z);
-            ret += sizeof(uint32_t) + zlen + (4 - (zlen % 4));
-        } else if (param->type == 'o' || param->type == 't') {
-            ret += sizeof(uint32_t);
-        } else {
-            ret += value_size(&param->value);
+        switch (param->type) {
+            case 'm': case 'x': {
+                if (param->is_inline_string) {
+                    // Instruction has an inline string param, so
+                    // the size can't be calculated yet. It'll be
+                    // filled in with values once the sub is inlined.
+                    return 0;
+                }
+                size_t zlen = g_ecl_encode_cp932 ? utf8_to_cp932_len(param->value.val.z) : strlen(param->value.val.z);
+                ret += sizeof(uint32_t) + zlen + (4 - (zlen % 4));
+                break;
+            }
+            case 'o': case 't':
+                ret += sizeof(uint32_t);
+                break;
+            case 'z':
+                if (param->is_inline_string) {
+                    // Instruction has an inline string param, so
+                    // the size can't be calculated yet. It'll be
+                    // filled in with values once the sub is inlined.
+                    return 0;
+                }
+            default:
+                ret += value_size(&param->value);
+                break;
         }
     }
 

@@ -139,8 +139,7 @@ thecl_instr_free(thecl_instr_t* instr)
 
     thecl_param_t* param;
     list_for_each(&instr->params, param) {
-        value_free(&param->value);
-        free(param);
+        param_free(param);
     }
     list_free_nodes(&instr->params);
 
@@ -161,6 +160,7 @@ param_new(
     param->type = type;
     param->value.type = type;
     param->is_expression_param = 0;
+    param->is_inline_string = 0;
     return param;
 }
 
@@ -170,12 +170,15 @@ param_copy(
 ) {
     thecl_param_t* copy = calloc(1, sizeof(thecl_param_t));
     memcpy(copy, param, sizeof(thecl_param_t));
-    /* Handle possible pointers in the value. */
-    if (copy->value.type == 'z')
-        copy->value.val.z = strdup(param->value.val.z);
-    else if (copy->value.type == 'm') {
-        copy->value.val.m.data = malloc(param->value.val.m.length);
-        memcpy(copy->value.val.m.data, param->value.val.m.data, param->value.val.m.length);
+    /* Inline string values cannot have valid pointers */
+    if (!copy->is_inline_string) {
+        /* Handle possible pointers in the value. */
+        if (copy->value.type == 'z')
+            copy->value.val.z = strdup(param->value.val.z);
+        else if (copy->value.type == 'm') {
+            copy->value.val.m.data = malloc(param->value.val.m.length);
+            memcpy(copy->value.val.m.data, param->value.val.m.data, param->value.val.m.length);
+        }
     }
     return copy;
 }
@@ -184,7 +187,11 @@ void
 param_free(
     thecl_param_t* param)
 {
-    value_free(&param->value);
+    // Filter out inline string params since they don't
+    // have valid pointers that need to be freed.
+    if (!param->is_inline_string) {
+        value_free(&param->value);
+    }
     free(param);
 }
 

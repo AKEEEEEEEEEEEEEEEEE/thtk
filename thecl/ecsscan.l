@@ -85,6 +85,7 @@
 "int"      return T_INT;
 "float"    return T_FLOAT;
 "void"     return T_VOID;
+"string"   return T_STRING;
 "inline"   return T_INLINE;
 "return"   return T_RETURN;
 "@"        return '@';

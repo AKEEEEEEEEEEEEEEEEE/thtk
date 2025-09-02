@@ -219,6 +219,7 @@ static const char sub_param_fi[] = {'f', 'i'};
 %token T_INT "int"
 %token T_FLOAT "float"
 %token T_VOID "void"
+%token T_STRING "string"
 %token T_INLINE "inline"
 %token T_RETURN "return"
 %token T_VARARGS "..."
@@ -284,6 +285,7 @@ static const char sub_param_fi[] = {'f', 'i'};
 
 %type <integer> Cast_Target
 %type <integer> DeclareKeyword
+%type <integer> DeclareKeywordInline
 %type <integer> VarDeclaration
 
 %type <cstring> Cast_Target2
@@ -342,7 +344,7 @@ Statement:
         state->current_sub->is_inline = true;
         free($3);
       }
-      '(' ArgumentDeclaration ')' {
+      '(' ArgumentDeclarationInline ')' {
             ssize_t arity = state->current_sub->stack / 4;
             state->current_sub->arity = arity;
             char* format = malloc(arity + 1);
@@ -539,7 +541,7 @@ Subroutine_Body:
 Global_Def:
     Instruction_Parameter[param] {
         if ($param->is_expression_param) {
-            yyerror(state, "expressions that can't ve evaluated compile-time are not allowed for global definitions");
+            yyerror(state, "expressions that can't be evaluated compile-time are not allowed for global definitions");
         }
         $$ = $param;
     }
@@ -561,6 +563,11 @@ DeclareKeyword:
     | "var" { $$ = '?'; }
     | "int" { $$ = 'S'; }
     | "float" { $$ = 'f'; }
+    ;
+
+DeclareKeywordInline:
+      DeclareKeyword
+    | "string" { $$ = 'z'; }
     ;
 
 VarDeclaration:
@@ -594,6 +601,18 @@ ArgumentDeclaration:
           free($2);
       }
     | ArgumentDeclaration ',' DeclareKeyword IDENTIFIER {
+          var_create(state, state->current_sub, $4, $3);
+          free($4);
+      }
+    ;
+
+ArgumentDeclarationInline:
+    %empty
+    | DeclareKeywordInline IDENTIFIER {
+          var_create(state, state->current_sub, $2, $1);
+          free($2);
+      }
+    | ArgumentDeclarationInline ',' DeclareKeywordInline IDENTIFIER {
           var_create(state, state->current_sub, $4, $3);
           free($4);
       }
@@ -1161,6 +1180,10 @@ InstructionNoGoto:
 
 Assignment:
       Address '=' ExpressionAny {
+        if ($3->result_type != 'S' && $3->result_type != 'f') {
+            yyerror(state, "assignment requires int or float");
+            exit(2);
+        }
         const expr_t* expr = expr_get_by_symbol(state->version, $1->type == 'S' ? ASSIGNI : ASSIGNF);
         expression_output(state, $3, 1);
         expression_free($3);
@@ -1411,10 +1434,15 @@ Address:
             }
             $$ = param_new(type);
             $$->stack = 1;
-            if (type == 'S') {
-                $$->value.val.S = var_stack(state, state->current_sub, $1, 'S');
-            } else {
-                $$->value.val.f = var_stack(state, state->current_sub, $1, 'f');
+            switch (type) {
+                case 'z':
+                    $$->is_inline_string = true;
+                case 'S':
+                    $$->value.val.S = var_stack(state, state->current_sub, $1, 'S');
+                    break;
+                case 'f':
+                    $$->value.val.f = var_stack(state, state->current_sub, $1, 'f');
+                    break;
             }
         } else {
             global_definition_t *def = global_get(state, $1);
@@ -1788,17 +1816,27 @@ static void instr_create_inline_call(
     size_t i = 0;
     thecl_param_t* param;
     list_for_each(params, param) {
-        if (sub->format[i] == '\0') {
-            yyerror(state, "too many paramters for inline sub \"%s\"", sub->name);
-            list_for_each(params, param)
-                param_free(param);
-            return;
-        }
-        if (sub->format[i] != '?' && sub->format[i] != param->type) {
-            yyerror(state, "wrong parameter %i when calling inline sub \"%s\", expected type: %c\n", i + 1, sub->name, sub->format[i]);
-            list_for_each(params, param)
-                param_free(param);
-            return;
+        switch (sub->format[i]) {
+            case '\0':
+                yyerror(state, "too many paramters for inline sub \"%s\"", sub->name);
+                list_for_each(params, param)
+                    param_free(param);
+                return;
+            case '?':
+                if (param->type != 'S' && param->type != 'f') {
+                    yyerror(state, "wrong parameter %i when calling inline sub \"%s\" (expected: S or f, got: %c)\n", i + 1, sub->name, param->type);
+                    list_for_each(params, param)
+                        param_free(param);
+                    return;
+                }
+                break;
+            default:
+                if (sub->format[i] != param->type) {
+                    yyerror(state, "wrong parameter %i when calling inline sub \"%s\" (expected: %c, got: %c)\n", i + 1, sub->name, sub->format[i], param->type);
+                    list_for_each(params, param)
+                        param_free(param);
+                    return;
+                }
         }
         ++i;
     }
@@ -1828,8 +1866,7 @@ static void instr_create_inline_call(
 
     list_for_each(params, param) { /* It has alredy been verified that param amount is correct. */
         var = sub->vars[i];
-        if (var->is_written || var->is_punned || param->is_expression_param || param_is_system_var(state, param)) {
-
+        if (var->type != 'z' && (var->is_written || var->is_punned || param->is_expression_param || param_is_system_var(state, param))) {
             if (param->is_expression_param && !var->is_written && !var->is_punned) {
                 /* Check if the passed expression can be simplified to a literal value. */
                 list_node_t* node = state->expressions.tail;
@@ -1943,11 +1980,19 @@ static void instr_create_inline_call(
             continue;
         }
 
+        bool recalculate_size = false;
+
         list_node_t* param_node;
         list_for_each_node(&new_instr->params, param_node) {
             /* Still reusing the same param variable as earlier. */
             param = (thecl_param_t*)param_node->data;
-            if (param->stack) {
+            if (param->is_inline_string) {
+                thecl_param_t* replacement = param_copy(param_replace[param->value.val.S / 4]);
+                replacement->type = param->type;
+                param_node->data = replacement;
+                param_free(param);
+                recalculate_size = true;
+            } else if (param->stack) {
                 if (param->type == 'D' || param->type == 'H') {
                     thecl_sub_param_t* D = (thecl_sub_param_t*)param->value.val.m.data;
                     if (D->from == 'i') {
@@ -2011,6 +2056,10 @@ static void instr_create_inline_call(
                     param->value.val.z = strdup(buf);
                 }
             }
+        }
+        if (recalculate_size) {
+            new_instr->size = state->instr_size(state->version, new_instr, false);
+            labels_adjust(&tmp_labels, new_instr->offset - offset_diff, -new_instr->size);
         }
         instr_add(state->current_sub, new_instr);
     }
@@ -3059,6 +3108,10 @@ var_create_assign(
     }
     if (type == '?') {
         yyerror(state, "var creation with assignment requires int/float declaration keyword");
+        exit(2);
+    }
+    if (expr->result_type != 'S' && expr->result_type != 'f') {
+        yyerror(state, "assignment requires int or float");
         exit(2);
     }
     thecl_variable_t* var = var_create(state, sub, name, type);

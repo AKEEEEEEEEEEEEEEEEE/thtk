@@ -94,6 +94,7 @@ typedef struct thecl_param_t {
     value_t value;
     int stack;
     char is_expression_param; /* Temporary variable for ecsparse.y */
+    char is_inline_string;
 } thecl_param_t;
 
 thecl_param_t* param_new(
