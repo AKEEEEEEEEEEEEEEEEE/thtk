@@ -301,7 +301,7 @@ static const char sub_param_fi[] = {'f', 'i'};
 %left '<' "<=" '>' ">="
 %left '+' '-'
 %left '*' '/' '%'
-%precedence '!' T_NEG
+%precedence '!' T_NEG '~'
 /* %precedence "--" */ /* not needed */
 
 %expect 0
@@ -1373,6 +1373,11 @@ ExpressionSubsetNoUnaryPlus:
     | Expression '?' Expression ':' Expression  %prec '?'
                                   { $$ = expression_ternary_new(state, $1, $3, $5); }
     | '!' Expression              { $$ = EXPR_21(NOTI,      NOTF,      $2); }
+    | '~' Expression                    {
+                                            thecl_param_t* p = param_new($2->result_type);
+                                            p->value.val.S = -1;
+                                            $$ = EXPR_12(XOR, $2, expression_load_new(state, p));
+                                        }
     | Address "--"                      {
                                             $$ = EXPR_1A(DEC, $1);
                                             if ($1->value.val.S >= 0) /* Stack variables only. This is also verrfied to be int by expression creation. */
@@ -2700,6 +2705,9 @@ expression_optimize(
                 break;
             case SQRT:
                 param->value.val.f = sqrtf(val1f);
+                break;
+            case B_NOT:
+                param->value.val.S = ~val1S;
                 break;
             case DEC:
                 /* This happens if the user tries to use the decrement operator on a non-variable. */

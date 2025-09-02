@@ -132,6 +132,7 @@
 "^"        return '^';
 "|"        return '|';
 "&"        return '&';
+"~"        return '~';
 "--"       return T_DEC;
 "sin"      return T_SIN;
 "cos"      return T_COS;

@@ -80,6 +80,7 @@ th06_expressions[] = {
     { NEGI,      -34, 'S', NULL, 1,  "S", "-s0", 0 },
     { NEGF,      -35, 'f', NULL, 1,  "f", "-s0", 0 },
     { SQRT,      -36, 'f', NULL, 1,  "f", "sqrt(s0)", 1 },
+    { B_NOT,     -37, 'S', NULL, 1,  "S", "~s0", 0 },
     { 0,           0,   0, NULL, 0, NULL, NULL, 0 }
 };
 
@@ -137,6 +138,7 @@ th10_expressions[] = {
     // NEGF existed since MoF but had a broken implementation until DS
     { NEGF,       -1, 'f', NULL, 1,  "f", "-s0", 0 },
     { SQRT,       -2, 'f', NULL, 1,  "f", "sqrt(s0)", 1 },
+    { B_NOT,      -3, 'S', NULL, 1,  "S", "~s0", 0 },
     { 0,           0,   0, NULL, 0, NULL, NULL, 0 }
 };
 

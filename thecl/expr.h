@@ -107,5 +107,6 @@ enum {
     SIN,
     COS,
     SQRT,
+    B_NOT,
 };
 #endif
