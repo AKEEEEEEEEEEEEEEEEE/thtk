@@ -1467,6 +1467,7 @@ Address:
             switch (type) {
                 case 'z':
                     $$->is_inline_string = true;
+                    /* fallthrough */
                 case 'S':
                     $$->value.val.S = var_stack(state, state->current_sub, $1, 'S');
                     break;

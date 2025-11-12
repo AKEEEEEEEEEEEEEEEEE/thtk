@@ -234,7 +234,7 @@ th06_stringify_param(
                                 val = (int)floorf(param->value.val.f);
                                 break;
                         }
-                        
+
                         seqmap_entry_t * ent = seqmap_get(g_eclmap->gvar_names, val);
                         if (ent) {
                             snprintf(temp, 256, "%c%s", param->value.type == 'f' ? '%' : '$', ent->value);
@@ -1424,6 +1424,7 @@ th06_timeline_instr_size(
                     ret += utf8_to_cp932_len(param->value.val.z);
                     break;
                 }
+                /* fallthrough */
             default: {
                 value_t v = param->value;
                 v.type = param->type;
@@ -1570,6 +1571,7 @@ th06_serialize_data(
     size_t data_size,
     bool is_timeline)
 {
+    (void)instr; // FIXME: maybe remove this unused parameter?
     value_t v;
     switch (param->type) {
         case 'n':

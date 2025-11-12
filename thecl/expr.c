@@ -188,20 +188,21 @@ expr_get_by_symbol(
     switch (engine_version(version)) {
         default:
         case VER_POST_TH13:
-            ret = expr_get_by_symbol_from_table(th13_expressions, symbol);
-            if (ret) break;
+            if ((ret = expr_get_by_symbol_from_table(th13_expressions, symbol))) break;
+            /* fallthrough */
         case VER_POST_TH125:
-            ret = expr_get_by_symbol_from_table(th125_expressions, symbol);
-            if (ret) break;
+            if ((ret = expr_get_by_symbol_from_table(th125_expressions, symbol))) break;
+            /* fallthrough */
         case VER_POST_ALCOSTG:
-            ret = expr_get_by_symbol_from_table(alcostg_expressions, symbol);
-            if (ret) break;
+            if ((ret = expr_get_by_symbol_from_table(alcostg_expressions, symbol))) break;
+            /* fallthrough */
         case VER_POST_TH10:
             ret = expr_get_by_symbol_from_table(th10_expressions, symbol);
             break;
         case VER_PRE_TH10:
         case VER_PRE_TH8:
             ret = expr_get_by_symbol_from_table(th06_expressions, symbol);
+            break;
     }
 
     return ret;
@@ -231,20 +232,21 @@ expr_get_by_id(
     switch (engine_version(version)) {
         default:
         case VER_POST_TH13:
-            ret = expr_get_by_id_from_table(th13_expressions, id);
-            if (ret) break;
+            if ((ret = expr_get_by_id_from_table(th13_expressions, id))) break;
+            /* fallthrough */
         case VER_POST_TH125:
-            ret = expr_get_by_id_from_table(th125_expressions, id);
-            if (ret) break;
+            if ((ret = expr_get_by_id_from_table(th125_expressions, id))) break;
+            /* fallthrough */
         case VER_POST_ALCOSTG:
-            ret = expr_get_by_id_from_table(alcostg_expressions, id);
-            if (ret) break;
+            if ((ret = expr_get_by_id_from_table(alcostg_expressions, id))) break;
+            /* fallthrough */
         case VER_POST_TH10:
             ret = expr_get_by_id_from_table(th10_expressions, id);
             break;
         case VER_PRE_TH10:
         case VER_PRE_TH8:
             ret = expr_get_by_id_from_table(th06_expressions, id);
+            break;
     }
 
     return ret;

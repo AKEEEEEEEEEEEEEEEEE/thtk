@@ -2082,6 +2082,7 @@ th10_instr_size(
                     // filled in with values once the sub is inlined.
                     return 0;
                 }
+                /* fallthrough */
             default:
                 ret += value_size(&param->value);
                 break;
